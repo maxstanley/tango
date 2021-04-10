@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/maxstanley/tango/handler"
+	"github.com/maxstanley/tango/wrapper"
 )
 
 func Wrapper(path string, handlerFactory func() handler.Handler) (string, http.HandlerFunc) {
@@ -34,16 +35,26 @@ func Wrapper(path string, handlerFactory func() handler.Handler) (string, http.H
 			return
 		}
 
-		if err := h.UnmarshalBody(body); err != nil {
+		contentType := r.Header.Get("Content-Type")
+		if err := wrapper.UnmarshalRequestBody(h, body, contentType); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "could not unmarshal body: %s", err.Error())
+			fmt.Fprintf(w, err.Error())
 			return
 		}
 
-		status, stringResponse := h.Handler()
+		status, protoMessage := h.Handler()
+		acceptType := r.Header.Get("Accept")
+		w.Header().Set("Content-Type", acceptType)
+
+		responseBytes, errStatus, err := wrapper.MarshalResponseBody(protoMessage, acceptType)
+		if err != nil {
+			w.WriteHeader(errStatus)
+			fmt.Fprintf(w, err.Error())
+			return
+		}
 
 		w.WriteHeader(status)
-		fmt.Fprintf(w, stringResponse)
+		fmt.Fprintf(w, string(responseBytes))
 	}
 }
 
