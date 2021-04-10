@@ -7,7 +7,10 @@ import (
 	"reflect"
 	"strconv"
 
+	"simple/protobuf"
+
 	"github.com/maxstanley/tango/handler"
+	"google.golang.org/protobuf/proto"
 )
 
 func NewPostCanDrink() handler.Handler {
@@ -15,14 +18,18 @@ func NewPostCanDrink() handler.Handler {
 }
 
 type getCanDrinkEvent struct {
-	Name    string `json:"name"`
-	Age     string `json:"age"`
+	protobuf.DrinkEvent
+
 	Country string `path:"country"`
 	City    string `path:"city"`
 }
 
-func (e *getCanDrinkEvent) UnmarshalBody(data []byte) error {
+func (e *getCanDrinkEvent) UnmarshalJSONBody(data []byte) error {
 	return json.Unmarshal(data, e)
+}
+
+func (e *getCanDrinkEvent) UnmarshalProtoBody(data []byte) error {
+	return proto.Unmarshal(data, e)
 }
 
 func (e *getCanDrinkEvent) UnmarshalPath(pathMap map[string]string) {
@@ -43,28 +50,38 @@ func (e *getCanDrinkEvent) UnmarshalPath(pathMap map[string]string) {
 	}
 }
 
-func (e *getCanDrinkEvent) Handler() (int, string) {
+func newStringResponse(status int32, message string) *protobuf.StringResponse {
+	return &protobuf.StringResponse{
+		Status:  status,
+		Message: message,
+	}
+}
+
+func (e *getCanDrinkEvent) Handler() (int, proto.Message) {
 	if e.Name == "" {
-		return http.StatusBadRequest, "no name found in body"
+		return http.StatusBadRequest, newStringResponse(http.StatusBadRequest, "no name found in body")
 	}
 	if e.Age == "" {
-		return http.StatusBadRequest, "no age found in body"
+		return http.StatusBadRequest, newStringResponse(http.StatusBadRequest, "no age found in body")
 	}
 	if e.City == "" {
-		return http.StatusBadRequest, "no city parameter found"
+		return http.StatusBadRequest, newStringResponse(http.StatusBadRequest, "no city parameter found")
 	}
 	if e.Country == "" {
-		return http.StatusBadRequest, "no country parameter found"
+		return http.StatusBadRequest, newStringResponse(http.StatusBadRequest, "no country parameter found")
 	}
 
 	age, err := strconv.Atoi(e.Age)
 	if err != nil {
-		return http.StatusBadRequest, "age must be a valid number"
+		return http.StatusBadRequest, newStringResponse(http.StatusBadRequest, "age must be a valid number")
 	}
 
 	if age > 17 {
-		return http.StatusOK, fmt.Sprintf("%s can have alcohol in %s, %s!", e.Name, e.City, e.Country)
+		return http.StatusOK, newStringResponse(http.StatusOK, fmt.Sprintf("%s can have alcohol in %s, %s!", e.Name, e.City, e.Country))
 	}
 
-	return http.StatusOK, fmt.Sprintf("%s can have a soft drink!", e.Name)
+	return http.StatusOK, newStringResponse(
+		http.StatusOK,
+		fmt.Sprintf("%s can have a soft drink!", e.Name),
+	)
 }

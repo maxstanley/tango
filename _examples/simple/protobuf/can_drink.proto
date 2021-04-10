@@ -1,0 +1,9 @@
+syntax="proto3";
+
+option go_package = "../../simple/protobuf";
+package protobuf;
+
+message DrinkEvent {
+  string Name = 1;
+  string Age = 2;
+}

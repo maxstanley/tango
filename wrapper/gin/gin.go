@@ -1,11 +1,11 @@
 package gin
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/maxstanley/tango/handler"
+	"github.com/maxstanley/tango/wrapper"
 )
 
 func parseContext(c *gin.Context) map[string]string {
@@ -23,17 +23,27 @@ func parseContext(c *gin.Context) map[string]string {
 func Wrapper(path string, handlerFactory func() handler.Handler) (string, func(c *gin.Context)) {
 	return path, func(c *gin.Context) {
 		h := handlerFactory()
-
 		pathMap := parseContext(c)
-
 		body, _ := c.GetRawData()
-		if err := h.UnmarshalBody(body); err != nil {
-			c.String(http.StatusBadRequest, fmt.Sprintf("could not unmarshal body: %s", err.Error()))
+
+		contentType := c.ContentType()
+		if err := wrapper.UnmarshalRequestBody(h, body, contentType); err != nil {
+			c.String(http.StatusBadRequest, err.Error())
 			return
 		}
 
 		h.UnmarshalPath(pathMap)
+		status, protoMessage := h.Handler()
+		acceptType := c.Request.Header["Accept"][0]
+		c.Header("Content-Type", acceptType)
 
-		c.String(h.Handler())
+		responseBytes, errStatus, err := wrapper.MarshalResponseBody(protoMessage, acceptType)
+		if err != nil {
+			c.String(errStatus, err.Error())
+			return
+		}
+
+		c.String(status, string(responseBytes))
+		return
 	}
 }

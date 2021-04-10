@@ -1,8 +1,11 @@
 package handler
 
-type Handler interface {
-	Handler() (int, string)
+import "google.golang.org/protobuf/proto"
 
-	UnmarshalBody([]byte) error
+type Handler interface {
+	Handler() (int, proto.Message)
+
+	UnmarshalJSONBody([]byte) error
+	UnmarshalProtoBody([]byte) error
 	UnmarshalPath(map[string]string)
 }
